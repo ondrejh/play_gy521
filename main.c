@@ -26,6 +26,7 @@
 //******************************************************************************
 #include <msp430.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #define LED_RED_ON() do{P1OUT|=0x01;}while(0)
 #define LED_RED_OFF() do{P1OUT&=~0x01;}while(0)
@@ -39,6 +40,8 @@
 #define CHMAX  0x7D0
 #define CENTER 0x5DC
 #define CHMIN  0x3E8
+
+#define PWM_THOLD 50
 
 uint16_t ch[CHANNELS];
 int rxcnt = 0;
@@ -67,7 +70,7 @@ int main(void)
     // start timer
     P2DIR |= 0x12;       // P2.1,4 output
     P2SEL |= 0x12;       // P2.1,4 option select
-    TA1CCR0 = 1000;
+    TA1CCR0 = 500;
     TA1CCTL1 = OUTMOD_6; // CCR1 toggle/set (P2.1)
     TA1CCR1 = 0;
     TA1CCTL2 = OUTMOD_6; // CCR2 toggle/set (P2.4)
@@ -78,6 +81,8 @@ int main(void)
     while(1) {
         __bis_SR_register(LPM0_bits + GIE); // Enter LPM0, interrupts enabled
         int left, right, ch0i, ch1i;
+        bool led = false;
+
         ch0i = ch[0]-CENTER;
         ch1i = ch[1]-CENTER;
         left  = ch1i + ch0i;
@@ -86,34 +91,43 @@ int main(void)
         if (left<-500)  left  = -500;
         if (right>500)  right =  500;
         if (right<-500) right = -500;
+
         if (left>0) {
             P2OUT &= ~0x04;
-            if (left>20)
-                TA1CCR1 = (left<<1);
-            else
+            if (left>PWM_THOLD) {
+                TA1CCR1 = left;
+                led = true;
+            } else
                 TA1CCR1 = 0;
         }
         else {
             P2OUT |= 0x04;
-            if (left<-20)
-                TA1CCR1 = ((500+left)<<1);
-            else
-                TA1CCR1 = 1000;
+            if (left<-PWM_THOLD) {
+                TA1CCR1 = 500+left;
+                led = true;
+            } else
+                TA1CCR1 = 501;
         }
+
         if (right>0) {
             P2OUT &= ~0x08;
-            if (right>20)
-                TA1CCR2 = (right<<1);
-            else
+            if (right>PWM_THOLD) {
+                TA1CCR2 = right;
+                led = true;
+            } else
                 TA1CCR2 = 0;
         }
         else {
             P2OUT |= 0x08;
-            if (right<-20)
-                TA1CCR2 = ((500+right)<<1);
-            else
-                TA1CCR2 = 1000;
+            if (right<-PWM_THOLD) {
+                TA1CCR2 = 500+right;
+                led = true;
+            } else
+                TA1CCR2 = 501;
         }
+
+        if (led) LED_GREEN_ON();
+        else LED_GREEN_OFF();
     }
     return 1;
 }
@@ -129,8 +143,12 @@ void __attribute__ ((interrupt(WDT_VECTOR))) watchdog_timer (void)
 #endif
 {
     static int rxcnt_test = 0;
-    if (rxcnt_test==rxcnt)
+    if (rxcnt_test==rxcnt) {
         LED_RED_OFF();
+        TA1CCR1 = 0;
+        TA1CCR2 = 0;
+        P1OUT &= ~0x06;
+    }
     rxcnt_test = rxcnt;
 }
 
@@ -162,7 +180,7 @@ void __attribute__ ((interrupt(USCIAB0RX_VECTOR))) USCI0RX_ISR (void)
             s = 0;
         break;
     case 2:
-        if (i&1) {
+        if ((i&1)==0) {
             chn = i>>1;
             ch[chn] = c;
         }
