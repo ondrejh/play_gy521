@@ -28,12 +28,21 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+/*#define LED_INIT() do{P1DIR|=0x41;P1OUT&=~0x41;}while(0)
 #define LED_RED_ON() do{P1OUT|=0x01;}while(0)
 #define LED_RED_OFF() do{P1OUT&=~0x01;}while(0)
 #define LED_RED_SWAP() do{P1OUT^=0x01;}while(0)
 #define LED_GREEN_ON() do{P1OUT|=0x40;}while(0)
 #define LED_GREEN_OFF() do{P1OUT&=~0x40;}while(0)
-#define LED_GREEN_SWAP() do{P1OUT^=0x40;}while(0)
+#define LED_GREEN_SWAP() do{P1OUT^=0x40;}while(0)*/
+
+#define LED_INIT() do{P1DIR|=0xC0;P2DIR|=0x20;P1OUT&=~0xC0;P2OUT&=~0x20;}while(0)
+#define LED_RED_ON() do{P2OUT|=0x05;}while(0)
+#define LED_RED_OFF() do{P2OUT&=~0x05;}while(0)
+#define LED_RED_SWAP() do{P2OUT^=0x05;}while(0)
+#define LED_GREEN_ON() do{P1OUT|=0x80;}while(0)
+#define LED_GREEN_OFF() do{P1OUT&=~0x80;}while(0)
+#define LED_GREEN_SWAP() do{P1OUT^=0x80;}while(0)
 
 #define CHANNELS 10
 
@@ -65,10 +74,11 @@ int main(void)
     IE2 |= UCA0RXIE;                 // Enable USCI_A0 RX interrupt
 
     // setup LEDs
-    P1DIR |= 0x41; P1OUT &= ~0x41;
+    LED_INIT();
 
     // start timer
-    P2DIR |= 0x12;       // P2.1,4 output
+    P2DIR |= 0x1E;       // P2.1,2,3,4 output
+    P2OUT &= ~0x0C;
     P2SEL |= 0x12;       // P2.1,4 option select
     TA1CCR0 = 500;
     TA1CCTL1 = OUTMOD_6; // CCR1 toggle/set (P2.1)
@@ -147,7 +157,7 @@ void __attribute__ ((interrupt(WDT_VECTOR))) watchdog_timer (void)
         LED_RED_OFF();
         TA1CCR1 = 0;
         TA1CCR2 = 0;
-        P1OUT &= ~0x06;
+        P2OUT &= ~0x0C;
     }
     rxcnt_test = rxcnt;
 }
