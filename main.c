@@ -12,8 +12,9 @@
 //            |                 |
 //            |     P1.1/UCA0RXD|<--- FS-A8S
 //            |                 |
-//            |             P1.0|---> RED LED (RX ON)
-//            |             P1.5|---> GREEN LED (PWM ON)
+//            |             P1.7|---> RED LED (RX ON)
+//            |             P1.6|---> LED GND
+//            |             P2.5|---> GREEN LED (PWM ON)
 //            |                 |
 //            |       P2.1/TA1.1|---> PWM LEFT
 //            |             P2.2|---> DIR LEFT
