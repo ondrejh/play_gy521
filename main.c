@@ -21,6 +21,9 @@
 //            |       P2.4/TA1.2|---> PWM RIGHT
 //            |             P2.3|---> DIR RIGHT
 //            |                 |
+//            |       P1.5/TA0.0|---> SERVO 1
+//            |       P1.6/TA0.1|---> SERVO 2
+//            |                 |
 //
 //   Ing. Ondrej Hejda
 //   May 2018
@@ -76,6 +79,18 @@ int main(void)
 
     // setup LEDs
     LED_INIT();
+
+	P1DIR |= 0x60;
+	P1OUT &= ~0x60;
+	P1SEL |= 0x60;
+	TA0CCTL0 = OUTMOD_1;
+    TA0CCR0 = 20000;
+    TA0CCR1 = 1500;
+    TA0CCTL1 = OUTMOD_6;
+    TA0CCR2 = 1500;
+	TA0CCTL2 = CCIE;
+	
+    TA0CTL = TASSEL_2 + MC_1 + TAIE;             // SMCLK, upmode
 
     // start timer
     P2DIR |= 0x1E;       // P2.1,2,3,4 output
@@ -209,4 +224,24 @@ void __attribute__ ((interrupt(USCIAB0RX_VECTOR))) USCI0RX_ISR (void)
         s=0;
         break;
     }
+}
+
+// Timer_A2 Interrupt Vector (TA0IV) handler
+#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+#pragma vector=TIMER0_A2_VECTOR
+__interrupt void Timer_A2(void)
+#elif defined(__GNUC__)
+void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) Timer_A2 (void)
+#else
+#error Compiler not supported!
+#endif
+{
+	TA0CCTL0 &= ~0x04;
+  /*switch( TA0IV )
+  {
+  case  2: CCR1 += 1000;                    // Add Offset to CCR1
+           break;
+  case 10: P1OUT ^= 0x01;                   // Timer_A3 overflow
+           break;
+ }*/
 }
