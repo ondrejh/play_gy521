@@ -2,7 +2,8 @@
 //   MSP430G2553 Tank receiver / convertor
 //
 //   Description: Receive data from FS-A8S receiver
-//                Convert CH0, CH1 to tank PWM
+//                Convert CH0 (X), CH1 (Y) to left/right PWM
+//				  Send CH2 to SERVO 1 output
 //
 //                MSP430G2553
 //             -----------------
@@ -20,24 +21,20 @@
 //            |       P2.4/TA1.2|---> PWM RIGHT
 //            |             P2.3|---> DIR RIGHT
 //            |                 |
-//            |       P1.5/TA0.0|---> SERVO 1
-//            |       P1.6/TA0.1|---> SERVO 2
+//            |       P1.6/TA0.1|---> SERVO 1
+//            |       P1.5/TA0.0|---> SERVO 2 (doesn't work)
+//            |                 |
+//            |             P2.0|---> OUT 1
+//            |             P2.5|---> OUT 2
 //            |                 |
 //
-//   Ing. Ondrej Hejda
-//   May 2018
+//   Author: Ondrej Hejda
+//   Date started: May 2018
+//
 //******************************************************************************
 #include <msp430.h>
 #include <stdint.h>
 #include <stdbool.h>
-
-/*#define LED_INIT() do{P1DIR|=0x41;P1OUT&=~0x41;}while(0)
-#define LED_RED_ON() do{P1OUT|=0x01;}while(0)
-#define LED_RED_OFF() do{P1OUT&=~0x01;}while(0)
-#define LED_RED_SWAP() do{P1OUT^=0x01;}while(0)
-#define LED_GREEN_ON() do{P1OUT|=0x40;}while(0)
-#define LED_GREEN_OFF() do{P1OUT&=~0x40;}while(0)
-#define LED_GREEN_SWAP() do{P1OUT^=0x40;}while(0)*/
 
 #define LED_INIT() do{P2DIR|=0xC0;P2OUT|=0xC0;P2SEL&=~0xC0;P2SEL2&=~0xC0;}while(0)
 #define LED_RED_ON() do{P2OUT|=0x80;}while(0)
@@ -46,6 +43,12 @@
 #define LED_GREEN_ON() do{P2OUT|=0x40;}while(0)
 #define LED_GREEN_OFF() do{P2OUT&=~0x40;}while(0)
 #define LED_GREEN_SWAP() do{P2OUT^=0x40;}while(0)
+
+#define OUT_INIT() do{P2DIR|=0x21;P2OUT&=~0x21;P2SEL&=~0x21;P2SEL2&=~0x21;}while(0)
+#define OUT_1_ON() do{P2OUT|=0x01;}while(0)
+#define OUT_1_OFF() do{P2OUT&=~0x01;}while(0)
+#define OUT_2_ON() do{P2OUT|=0x20;}while(0)
+#define OUT_2_OFF() do{P2OUT&=~0x20;}while(0)
 
 #define CHANNELS 10
 
@@ -145,6 +148,7 @@ int main(void)
 
     // setup LEDs
     LED_INIT();
+	OUT_INIT();
 
 	P1DIR |= 0x60;
 	P1OUT &= ~0x60;
