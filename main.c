@@ -182,7 +182,9 @@ int main(void)
 
 			xy2lr(ch[0], ch[1], &left, &right);
 
-			if (set_pwm_1(left) || set_pwm_2(right))
+            if (set_pwm_1(-left))
+                led = true;
+            if (set_pwm_2(right))
 				led = true;
 
 			if (led) LED_GREEN_ON();
