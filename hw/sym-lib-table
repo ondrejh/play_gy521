@@ -1,4 +1,0 @@
-(sym_lib_table
-  (lib (name msp430_servo-rescue)(type Legacy)(uri ${KIPRJMOD}/msp430_servo-rescue.lib)(options "")(descr ""))
-  (lib (name my_texas)(type Legacy)(uri D:/Projekty/kicad_lib/my_texas.lib)(options "")(descr ""))
-)
