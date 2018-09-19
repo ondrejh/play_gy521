@@ -60,6 +60,17 @@ void uart_start_tx(uint16_t cnt) {
     }
 }
 
+void print_data(uint8_t* data, int dlen) {
+    int i, ptr=0;
+    for (i=0;i<dlen;i++) {
+        utxbuff[ptr++] = u2h(data[i]>>8);
+        utxbuff[ptr++] = u2h(data[i]&0x0F);
+    }
+    utxbuff[ptr++] = '\n';
+    utxbuff[ptr++] = '\r';
+    uart_start_tx(ptr);
+}
+
 int main(void)
 {
     WDTCTL = WDTPW + WDTHOLD;        // Stop WDT
@@ -98,8 +109,8 @@ int main(void)
     while(1) {
         __bis_SR_register(LPM0_bits + GIE); // Enter LPM0, interrupts enabled
         LED_RED_SWAP();
-        /*RxByteCtr = 2;                          // Load RX byte counter
-        RxWord = 0x0;
+        RxByteCtr = 2;                          // Load RX byte counter
+        RxWord = 0x1234;
         UCB0CTL1 |= UCTXSTT;                    // I2C start condition
         __bis_SR_register(CPUOFF + GIE);        // Enter LPM0, enable interrupts
                                             // Remain in LPM0 until all data
@@ -107,25 +118,9 @@ int main(void)
         if (RxWord != 0x0)                    // >28C?
             LED_RED_ON();
         else
-            LED_RED_OFF();*/
+            LED_RED_OFF();
 
-        utxbuff[0] = 'A';
-        utxbuff[1] = 'H';
-        utxbuff[2] = 'O';
-        utxbuff[3] = 'J';
-        utxbuff[4] = '\r';
-        utxbuff[5] = '\n';
-        uart_start_tx(6);
-
-        /*while(!(IFG2&UCA0TXIFG));
-        UCA0TXBUF = u2h((RxWord>>12)&0x0F);
-        while(!(IFG2&UCA0TXIFG));
-        UCA0TXBUF = u2h((RxWord>>8)&0x0F);
-        while(!(IFG2&UCA0TXIFG));
-        UCA0TXBUF = u2h((RxWord>>4)&0x0F);
-        while(!(IFG2&UCA0TXIFG));
-        UCA0TXBUF = u2h((RxWord>>0)&0x0F);
-        while(!(IFG2&UCA0TXIFG));*/
+        print_data((uint8_t*)&RxWord, 2);
     }
 
     return -1;
@@ -145,6 +140,22 @@ void __attribute__ ((interrupt(USCIAB0RX_VECTOR))) USCIAB0RX_ISR (void)
         char c = UCA0RXBUF;
         if (c=='s')
             __bic_SR_register_on_exit(LPM0_bits);
+    }
+    if ((IFG2 & UCB0RXIFG) && (IE2 & UCB0RXIE)) {
+        RxByteCtr--;                              // Decrement RX byte counter
+
+        if (RxByteCtr)
+        {
+            RxWord = (unsigned int)UCB0RXBUF << 8;  // Get received byte
+            if (RxByteCtr == 1)                     // Only one byte left?
+            UCB0CTL1 |= UCTXSTP;                  // Generate I2C stop condition
+        }
+        else
+        {
+            RxWord |= UCB0RXBUF;                    // Get final received byte,
+                                                // Combine MSB and LSB
+            __bic_SR_register_on_exit(CPUOFF);      // Exit LPM0
+        }
     }
 }
 
@@ -167,19 +178,5 @@ void __attribute__ ((interrupt(USCIAB0TX_VECTOR))) USCIAB0TX_ISR (void)
             IE2 &= ~UCA0TXIE;
         }
     }
-    /*RxByteCtr--;                              // Decrement RX byte counter
-
-    if (RxByteCtr)
-    {
-        RxWord = (unsigned int)UCB0RXBUF << 8;  // Get received byte
-        if (RxByteCtr == 1)                     // Only one byte left?
-        UCB0CTL1 |= UCTXSTP;                  // Generate I2C stop condition
-    }
-    else
-    {
-        RxWord |= UCB0RXBUF;                    // Get final received byte,
-                                            // Combine MSB and LSB
-        __bic_SR_register_on_exit(CPUOFF);      // Exit LPM0
-    }*/
 }
 
