@@ -36,6 +36,30 @@
 #define LED_GREEN_OFF() do{P1OUT&=~0x40;}while(0)
 #define LED_GREEN_SWAP() do{P1OUT^=0x40;}while(0)*/
 
+unsigned int RxByteCtr;
+unsigned int RxWord;
+
+#define TXBUFLEN 16
+uint8_t utxbuff[TXBUFLEN];
+volatile uint16_t utxbuff_cnt = 0;
+volatile uint16_t utxbuff_ptr = 0;
+
+uint8_t u2h(uint8_t u) {
+    if (u<10)
+        return '0'+u;
+    return 'A'-10+u;
+}
+
+void uart_start_tx(uint16_t cnt) {
+    if (cnt>0) {
+        utxbuff_cnt = cnt;
+        while (!(IFG2&UCA0TXIFG));
+        UCA0TXBUF = utxbuff[0];
+        utxbuff_ptr = 1;
+        IE2 |= UCA0TXIE;
+    }
+}
+
 int main(void)
 {
     WDTCTL = WDTPW + WDTHOLD;        // Stop WDT
@@ -53,7 +77,7 @@ int main(void)
     UCA0BR1 = 0;                     // 1MHz 9600
     UCA0MCTL = UCBRS2 + UCBRS0;      // Modulation UCBRSx = 5
     UCA0CTL1 &= ~UCSWRST;            // **Initialize USCI state machine**
-    IE2 |= UCA0RXIE;                 // Enable USCI_A0 RX interrupt
+    IE2 |= UCA0RXIE;      // Enable USCI_A0 RX interrupt
 
     // init i2c
     P1SEL |= BIT6 + BIT7;                     // Assign I2C pins to USCI_B0
@@ -74,6 +98,34 @@ int main(void)
     while(1) {
         __bis_SR_register(LPM0_bits + GIE); // Enter LPM0, interrupts enabled
         LED_RED_SWAP();
+        /*RxByteCtr = 2;                          // Load RX byte counter
+        RxWord = 0x0;
+        UCB0CTL1 |= UCTXSTT;                    // I2C start condition
+        __bis_SR_register(CPUOFF + GIE);        // Enter LPM0, enable interrupts
+                                            // Remain in LPM0 until all data
+                                            // is RX'd
+        if (RxWord != 0x0)                    // >28C?
+            LED_RED_ON();
+        else
+            LED_RED_OFF();*/
+
+        utxbuff[0] = 'A';
+        utxbuff[1] = 'H';
+        utxbuff[2] = 'O';
+        utxbuff[3] = 'J';
+        utxbuff[4] = '\r';
+        utxbuff[5] = '\n';
+        uart_start_tx(6);
+
+        /*while(!(IFG2&UCA0TXIFG));
+        UCA0TXBUF = u2h((RxWord>>12)&0x0F);
+        while(!(IFG2&UCA0TXIFG));
+        UCA0TXBUF = u2h((RxWord>>8)&0x0F);
+        while(!(IFG2&UCA0TXIFG));
+        UCA0TXBUF = u2h((RxWord>>4)&0x0F);
+        while(!(IFG2&UCA0TXIFG));
+        UCA0TXBUF = u2h((RxWord>>0)&0x0F);
+        while(!(IFG2&UCA0TXIFG));*/
     }
 
     return -1;
@@ -82,14 +134,52 @@ int main(void)
 // Echo back RXed character, confirm TX buffer is ready first
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=USCIAB0RX_VECTOR
-__interrupt void USCI0RX_ISR(void)
+__interrupt void USCIAB0RX_ISR(void)
 #elif defined(__GNUC__)
-void __attribute__ ((interrupt(USCIAB0RX_VECTOR))) USCI0RX_ISR (void)
+void __attribute__ ((interrupt(USCIAB0RX_VECTOR))) USCIAB0RX_ISR (void)
 #else
 #error Compiler not supported!
 #endif
 {
-    while (!(IFG2&UCA0TXIFG)); // USCI_A0 TX buffer ready?
-    UCA0TXBUF = UCA0RXBUF;     // TX -> RXed character
-    __bic_SR_register_on_exit(LPM0_bits);
+    if (IFG2&UCA0RXIFG) {
+        char c = UCA0RXBUF;
+        if (c=='s')
+            __bic_SR_register_on_exit(LPM0_bits);
+    }
 }
+
+// The USCIAB0TX_ISR is structured such that it can be used to receive any
+// 2+ number of bytes by pre-loading RxByteCtr with the byte count.
+#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+#pragma vector = USCIAB0TX_VECTOR
+__interrupt void USCIAB0TX_ISR(void)
+#elif defined(__GNUC__)
+void __attribute__ ((interrupt(USCIAB0TX_VECTOR))) USCIAB0TX_ISR (void)
+#else
+#error Compiler not supported!
+#endif
+{
+    if ((IFG2 & UCA0TXIFG) && (IE2 & UCA0TXIE)) {
+        if (utxbuff_ptr < utxbuff_cnt) {
+            UCA0TXBUF = utxbuff[utxbuff_ptr++];
+        }
+        else {
+            IE2 &= ~UCA0TXIE;
+        }
+    }
+    /*RxByteCtr--;                              // Decrement RX byte counter
+
+    if (RxByteCtr)
+    {
+        RxWord = (unsigned int)UCB0RXBUF << 8;  // Get received byte
+        if (RxByteCtr == 1)                     // Only one byte left?
+        UCB0CTL1 |= UCTXSTP;                  // Generate I2C stop condition
+    }
+    else
+    {
+        RxWord |= UCB0RXBUF;                    // Get final received byte,
+                                            // Combine MSB and LSB
+        __bic_SR_register_on_exit(CPUOFF);      // Exit LPM0
+    }*/
+}
+
